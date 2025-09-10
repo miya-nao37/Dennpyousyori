@@ -9,7 +9,7 @@ function copyRowToLast() {
   // --- 設定はここまで ---
 
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName('KessaiSheet'); // シート名称で指定
+  const sheet = spreadsheet.getSheetByName('申請'); // シート名称で指定
 
   const END_COLUMN = sheet.getLastColumn();       // コピー範囲の終了列を指定します (E列=5, ...)
 
