@@ -41,8 +41,4 @@ function copyRowToLast() {
 
   console.log(`${SOURCE_ROW}行目の${START_COLUMN}列目から${END_COLUMN}列目を、${destinationRow}行目にコピーしました。`);
 
-  // 7. フラグの更新
-  setFlag1('true');
-  setFlag2('true');
-  Logger.log("フラグをリセットしました。");
-}
+};

@@ -1,50 +1,51 @@
 // ===============================================================
-// テンプレート行のプルダウンを更新する
+// プルダウン更新 (分岐機能)
 // ===============================================================
+
 /**
- * 設定シートの最新情報に基づき、申請シートの3行目（テンプレート行）の
- * プルダウン（データ入力規則）を更新します。
+ * 【メニュー用】今月からプルダウンを更新します。
+ * テンプレート行と最新月の未入力セルを更新します。
  */
-function updateTemplateRowDropdowns() {
+function updateDropdownsForThisMonth() {
   try {
+    const ui = SpreadsheetApp.getUi();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const appSheet = ss.getSheetByName(APPLICATION_SHEET_NAME);
     if (!appSheet) throw new Error(`シート「${APPLICATION_SHEET_NAME}」が見つかりません。`);
 
     const config = getSettingsConfig();
     if (Object.keys(config).length === 0) {
-      SpreadsheetApp.getUi().alert('設定シートが空か、正しく読み込めませんでした。');
+      ui.alert('設定シートが空か、正しく読み込めませんでした。');
       return;
     }
 
-    const templateRow = 3; // 参照元は3行目
-    const headers = appSheet.getRange(1, 1, 1, appSheet.getLastColumn()).getValues()[0];
-    
-    console.log('テンプレート行のプルダウン更新を開始します。');
-    for (let col = 3; col < headers.length; col += 2) {
-      const itemName = headers[col];
-      const itemConfig = config[itemName];
+    // 1. テンプレート行を常に更新
+    updateDropdownsForRow(appSheet, 3, config, false);
 
-      if (itemConfig) {
-        // 申請者プルダウン
-        if (itemConfig.applicants && itemConfig.applicants.length > 0) {
-          const applicantCell = appSheet.getRange(templateRow, col + 1);
-          const applicantRule = SpreadsheetApp.newDataValidation().requireValueInList(itemConfig.applicants).build();
-          applicantCell.setDataValidation(applicantRule);
-        }
-        // 承認者プルダウン
-        if (itemConfig.approvers && itemConfig.approvers.length > 0) {
-          const approverCell = appSheet.getRange(templateRow, col + 2);
-          const approverRule = SpreadsheetApp.newDataValidation().requireValueInList(itemConfig.approvers).build();
-          approverCell.setDataValidation(approverRule);
-        }
-      } else {
-        console.warn(`設定シートに項目「${itemName}」の設定が見つかりませんでした。`);
-      }
+    // 2. 最新月の行の未入力セルを更新
+    const latestRow = appSheet.getLastRow();
+    if (latestRow >= 4) {
+       updateDropdownsForRow(appSheet, latestRow, config, true);
+       ui.alert(`テンプレート行（3行目）と最新月（${latestRow}行目）の未入力プルダウンを更新しました。`);
+    } else {
+       ui.alert('テンプレート行（3行目）のプルダウンを更新しました。\n（データ行が存在しないため、最新月の更新はスキップされました）');
     }
-    SpreadsheetApp.getUi().alert('テンプレート行（3行目）のプルダウンを更新しました。');
   } catch (e) {
-    console.error(`テンプレート行の更新中にエラーが発生しました: ${e.message}\n${e.stack}`);
+    console.error(`「今月から反映」処理中にエラーが発生しました: ${e.message}\n${e.stack}`);
     SpreadsheetApp.getUi().alert(`エラーが発生しました: ${e.message}`);
   }
 }
+
+/**
+ * 【メニュー用】次月からプルダウンを更新します。
+ * テンプレート行のみを更新します。
+ */
+function updateDropdownsForNextMonth() {
+  try {
+    _internalUpdateTemplateRowOnly(); // 実際の更新処理を呼び出す
+    SpreadsheetApp.getUi().alert('テンプレート行（3行目）のプルダウンを更新しました。');
+  } catch (e) {
+    console.error(`「次月から反映」処理中にエラーが発生しました: ${e.message}\n${e.stack}`);
+    SpreadsheetApp.getUi().alert(`エラーが発生しました: ${e.message}`);
+  }
+};

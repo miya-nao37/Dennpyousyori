@@ -6,15 +6,18 @@ const SETTINGS_SHEET_NAME = '設定';
 
 
 // ===============================================================
-// メニュー追加機能
+// メニュー追加機能 (分岐版)
 // ===============================================================
 /**
  * スプレッドシートを開いたときにカスタムメニューを追加します。
+ * 「プルダウンを更新」にサブメニューを持たせます。
  */
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('⚙️ 決済管理Menu')
-    .addItem('テンプレート行のプルダウンを更新', 'updateTemplateRowDropdowns')
+    .createMenu('⚙️ 決済管理メニュー')
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('プルダウンを更新')
+      .addItem('今月から反映', 'updateDropdownsForThisMonth')
+      .addItem('次月から反映', 'updateDropdownsForNextMonth'))
     .addItem('決済項目を追加', 'addNewItemColumn')
     .addSeparator()
     .addItem('リマインドメールを送信（手動）', 'checkApprovalsAndSendReminders')
@@ -23,11 +26,23 @@ function onOpen() {
 
 
 // ===============================================================
-// リマインドメールを担当者ごとに送信する (項目別開始日に対応)
+// トリガー設定用メイン関数
 // ===============================================================
 /**
- * 申請・承認がされていない項目をチェックし、担当者ごとにリマインドメールを送信します。
- * 項目ごとに設定されたリマインド開始日を考慮します。
+ * 毎日定時に実行されるトリガー用の関数です。
+ */
+function dailyTrigger() {
+  console.log('日次トリガーを開始します。');
+  checkApprovalsAndSendReminders();
+  console.log('日次トリガーが正常に終了しました。');
+}
+
+
+// ===============================================================
+// リマインドメールを関係者全員に送信する
+// ===============================================================
+/**
+ * 未入力の項目がある場合、その項目に関わる関係者（申請者・承認者リストの全員）にリマインドメールを送信します。
  */
 function checkApprovalsAndSendReminders() {
   try {
@@ -37,7 +52,7 @@ function checkApprovalsAndSendReminders() {
     
     const config = getSettingsConfig();
     if (Object.keys(config).length === 0) {
-        console.warn('設定シートが空か、正しく読み込めませんでした。リマインド処理を中断します。');
+        console.warn('設定シートが空か、正しく読み込めませんでした。');
         return;
     }
 
@@ -60,22 +75,27 @@ function checkApprovalsAndSendReminders() {
       const itemName = headers[col];
       const itemConfig = config[itemName];
       
-      if (!itemConfig || !itemConfig.email || today.getDate() < itemConfig.reminderDay) {
-        continue;
-      }
+      if (!itemConfig || today.getDate() < itemConfig.reminderDay) continue;
 
-      const applicant = targetRowValues[col];
-      const approver = targetRowValues[col + 1];
-      const email = itemConfig.email;
-
-      if (!reminders[email]) {
-        reminders[email] = [];
+      const applicantValue = targetRowValues[col];
+      const approverValue = targetRowValues[col + 1];
+      
+      if (!applicantValue && itemConfig.applicants.emails.length > 0) {
+        const missingItemString = `  - ${itemName} (申請者)`;
+        const emailsToNotify = itemConfig.applicants.emails;
+        emailsToNotify.forEach(email => {
+          if (!reminders[email]) reminders[email] = [];
+          if (!reminders[email].includes(missingItemString)) reminders[email].push(missingItemString);
+        });
       }
-      if (!applicant) {
-        reminders[email].push(`  - ${itemName} (申請者)`);
-      }
-      if (!approver) {
-        reminders[email].push(`  - ${itemName} (承認者)`);
+      
+      if (!approverValue && itemConfig.approvers.emails.length > 0) {
+        const missingItemString = `  - ${itemName} (承認者)`;
+        const emailsToNotify = itemConfig.approvers.emails;
+        emailsToNotify.forEach(email => {
+          if (!reminders[email]) reminders[email] = [];
+          if (!reminders[email].includes(missingItemString)) reminders[email].push(missingItemString);
+        });
       }
     }
     
@@ -84,9 +104,9 @@ function checkApprovalsAndSendReminders() {
       if (missingItems.length > 0) {
         const subject = `【要対応】${targetYearMonth}度 決済処理の申請・承認のお願い`;
         const body = `
-お疲れ様です。
+各位
 
-ご担当の${targetYearMonth}度分 決済処理について、以下の項目で申請または承認が完了していません。
+${targetYearMonth}度分 決済処理について、ご担当の以下項目で未完了のタスクがあります。
 内容をご確認の上、ご対応をお願いいたします。
 
 ▼ 未完了の項目
@@ -95,51 +115,14 @@ ${missingItems.join('\n')}
 ▼ 詳細は下記のスプレッドシートをご確認ください。
 ${ss.getUrl()}
 
-※このメールはシステムにより自動送信されています。
+※このメールはシステムにより関係者全員に自動送信されています。
         `;
         MailApp.sendEmail(email, subject, body.trim());
         console.log(`リマインドメールを ${email} に送信しました。未完了項目: ${missingItems.length}件`);
-      } else {
-        console.log(`${email} 宛のタスクはすべて完了しています。メールは送信しませんでした。`);
       }
     }
 
   } catch (e) {
     console.error(`リマインダー処理中にエラーが発生しました: ${e.message}\n${e.stack}`);
   }
-}
-
-// ===============================================================
-// ヘルパー機能: 設定シートの情報をオブジェクトとして取得
-// ===============================================================
-/**
- * 設定シートから情報を読み込み、使いやすいオブジェクト形式で返します。
- * @returns {object} 項目名をキーとした設定情報のオブジェクト
- */
-function getSettingsConfig() {
-  const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
-  if (!settingsSheet) return {};
-  
-  const data = settingsSheet.getRange(2, 1, settingsSheet.getLastRow() - 1, 6).getValues();
-  const config = {};
-
-  data.forEach(row => {
-    const itemName = row[0];
-    const email = row[2];
-    const reminderDay = row[3]
-    const applicants = row[4] ? row[4].toString().split(',').map(item => item.trim()) : [];
-    const approvers = row[5] ? row[5].toString().split(',').map(item => item.trim()) : [];
-    
-    if (itemName) {
-      config[itemName] = {
-        email: email,
-        reminderDay: reminderDay,
-        applicants: applicants,
-        approvers: approvers
-      };
-    }
-  });
-  return config;
-}
-
-
+};
