@@ -10,7 +10,6 @@ const SETTINGS_SHEET_NAME = '設定';
 // ===============================================================
 /**
  * スプレッドシートを開いたときにカスタムメニューを追加します。
- * 「プルダウンを更新」にサブメニューを持たせます。
  */
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -39,10 +38,10 @@ function dailyTrigger() {
 
 
 // ===============================================================
-// リマインドメールを関係者全員に送信する
+// 機能3: リマインドメールを関係者全員に送信する
 // ===============================================================
 /**
- * 未入力の項目がある場合、その項目に関わる関係者（申請者・承認者リストの全員）にリマインドメールを送信します。
+ * 未入力の項目がある場合、その項目に関わる関係者全員にリマインドメールを送信します。
  */
 function checkApprovalsAndSendReminders() {
   try {
@@ -82,8 +81,7 @@ function checkApprovalsAndSendReminders() {
       
       if (!applicantValue && itemConfig.applicants.emails.length > 0) {
         const missingItemString = `  - ${itemName} (申請者)`;
-        const emailsToNotify = itemConfig.applicants.emails;
-        emailsToNotify.forEach(email => {
+        itemConfig.applicants.emails.forEach(email => {
           if (!reminders[email]) reminders[email] = [];
           if (!reminders[email].includes(missingItemString)) reminders[email].push(missingItemString);
         });
@@ -91,8 +89,7 @@ function checkApprovalsAndSendReminders() {
       
       if (!approverValue && itemConfig.approvers.emails.length > 0) {
         const missingItemString = `  - ${itemName} (承認者)`;
-        const emailsToNotify = itemConfig.approvers.emails;
-        emailsToNotify.forEach(email => {
+        itemConfig.approvers.emails.forEach(email => {
           if (!reminders[email]) reminders[email] = [];
           if (!reminders[email].includes(missingItemString)) reminders[email].push(missingItemString);
         });
@@ -103,20 +100,7 @@ function checkApprovalsAndSendReminders() {
       const missingItems = reminders[email];
       if (missingItems.length > 0) {
         const subject = `【要対応】${targetYearMonth}度 決済処理の申請・承認のお願い`;
-        const body = `
-各位
-
-${targetYearMonth}度分 決済処理について、ご担当の以下項目で未完了のタスクがあります。
-内容をご確認の上、ご対応をお願いいたします。
-
-▼ 未完了の項目
-${missingItems.join('\n')}
-
-▼ 詳細は下記のスプレッドシートをご確認ください。
-${ss.getUrl()}
-
-※このメールはシステムにより関係者全員に自動送信されています。
-        `;
+        const body = `各位\n\n${targetYearMonth}度分 決済処理について、ご担当の以下項目で未完了のタスクがあります。\n内容をご確認の上、ご対応をお願いいたします。\n\n▼ 未完了の項目\n${missingItems.join('\n')}\n\n▼ 詳細は下記のスプレッドシートをご確認ください。\n${ss.getUrl()}\n\n※このメールはシステムにより関係者全員に自動送信されています。`;
         MailApp.sendEmail(email, subject, body.trim());
         console.log(`リマインドメールを ${email} に送信しました。未完了項目: ${missingItems.length}件`);
       }
@@ -125,4 +109,4 @@ ${ss.getUrl()}
   } catch (e) {
     console.error(`リマインダー処理中にエラーが発生しました: ${e.message}\n${e.stack}`);
   }
-};
+}

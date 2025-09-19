@@ -1,10 +1,9 @@
 // ===============================================================
-// プルダウン更新 (分岐機能)
+// 機能1: プルダウン更新 (分岐機能)
 // ===============================================================
 
 /**
  * 【メニュー用】今月からプルダウンを更新します。
- * テンプレート行と最新月の未入力セルを更新します。
  */
 function updateDropdownsForThisMonth() {
   try {
@@ -19,10 +18,8 @@ function updateDropdownsForThisMonth() {
       return;
     }
 
-    // 1. テンプレート行を常に更新
     updateDropdownsForRow(appSheet, 3, config, false);
 
-    // 2. 最新月の行の未入力セルを更新
     const latestRow = appSheet.getLastRow();
     if (latestRow >= 4) {
        updateDropdownsForRow(appSheet, latestRow, config, true);
@@ -34,15 +31,14 @@ function updateDropdownsForThisMonth() {
     console.error(`「今月から反映」処理中にエラーが発生しました: ${e.message}\n${e.stack}`);
     SpreadsheetApp.getUi().alert(`エラーが発生しました: ${e.message}`);
   }
-}
+};
 
 /**
  * 【メニュー用】次月からプルダウンを更新します。
- * テンプレート行のみを更新します。
  */
 function updateDropdownsForNextMonth() {
   try {
-    _internalUpdateTemplateRowOnly(); // 実際の更新処理を呼び出す
+    _internalUpdateTemplateRowOnly();
     SpreadsheetApp.getUi().alert('テンプレート行（3行目）のプルダウンを更新しました。');
   } catch (e) {
     console.error(`「次月から反映」処理中にエラーが発生しました: ${e.message}\n${e.stack}`);
