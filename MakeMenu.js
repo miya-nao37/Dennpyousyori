@@ -19,7 +19,7 @@ function addNewItemColumn() {
     if (!appSheet || !settingsSheet) throw new Error('必要なシートが見つかりません。');
 
     // Action 1: 設定シートに行を追加し、罫線を引く
-    const columnRange = settingsSheet.getRange(columnLetter + "1");
+    const columnRange = settingsSheet.getRange("A" + "1");
     const dataRange = columnRange.getDataRegion(SpreadsheetApp.Dimension.ROWS);
     const aColumnLastRow = dataRange.getLastRow();
 
